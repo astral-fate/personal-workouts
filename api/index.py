@@ -13,11 +13,20 @@ app = Flask(__name__)
 CORS(app)
 
 # --- CONFIGURATION ---
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+# Updated database connection logic for Vercel
+db_url = os.environ.get('DATABASE_URL')
+if db_url and db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+# Ensure sslmode=require for remote databases
+if db_url and 'localhost' not in db_url and 'sqlite' not in db_url and 'sslmode' not in db_url:
+    db_url += "?sslmode=require"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True,
-    "pool_recycle": 300,  # recycle connections every 5 minutes
+    "pool_recycle": 300,
 }
 
 db = SQLAlchemy(app)
@@ -145,13 +154,6 @@ def serve_index():
 def serve_static(path):
     return send_from_directory('public', path)
 
-
-
-
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory('.', path)
-
 # --- DB INIT ---
 def create_tables():
     with app.app_context():
@@ -162,7 +164,3 @@ def create_tables():
 def init_db_command():
     """Initialize the database tables."""
     create_tables()
-
-# if __name__ == '__main__':
-#     # Only run the dev server locally
-#     app.run(debug=True)
