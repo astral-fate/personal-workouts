@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personalized Workout Planner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Simple transition for screen switching */
+        .screen {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+            position: absolute;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="app-container" class="max-w-xl mx-auto p-4 relative">
+
+        <!-- Home Screen (List of Routines) -->
+        <div id="home-screen" class="screen">
+            <header class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-gray-900">My Workouts</h1>
+                <p class="text-gray-600 mt-2">Select a routine to start or create a new one.</p>
+            </header>
+            <div id="routine-list" class="space-y-4 mb-6">
+                <!-- Dynamically added routines will go here -->
+            </div>
+            <button id="create-routine-btn" class="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Create New Routine
+            </button>
+        </div>
+
+        <!-- Setup/Edit Routine Screen -->
+        <div id="setup-screen" class="screen hidden">
+            <header class="mb-8">
+                 <button id="back-to-home-btn" class="flex items-center gap-2 text-gray-600 hover:text-gray-900 font-semibold mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                    Back to Routines
+                </button>
+                <h1 id="setup-screen-title" class="text-4xl font-bold text-gray-900 text-center">Create Your Workout</h1>
+            </header>
+
+            <div class="mb-6">
+                <label for="routine-name-input" class="block text-sm font-medium text-gray-700 mb-1">Routine Name</label>
+                <input type="text" id="routine-name-input" placeholder="e.g., Morning Stretch" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+            </div>
+
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Exercises</h2>
+            <div id="exercise-list" class="space-y-4 mb-6">
+                <!-- Dynamically added exercises will go here -->
+            </div>
+
+            <button id="add-exercise-btn" class="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Exercise
+            </button>
+            
+            <button id="save-routine-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-xl transition-all text-xl mt-4 shadow-lg hover:shadow-xl">
+                Save Routine
+            </button>
+        </div>
+
+        <!-- Workout Screen -->
+        <div id="workout-screen" class="screen hidden">
+             <div class="text-center">
+                <button id="quit-workout-btn" class="absolute top-4 left-4 bg-white p-2 rounded-full shadow-md hover:bg-gray-100 transition z-10">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 id="current-exercise-name" class="text-3xl font-bold text-gray-900 mt-12 mb-2"></h2>
+                <p id="progress-info" class="text-gray-500 mb-6"></p>
+            </div>
+
+            <div class="relative w-full h-80 mx-auto mb-8 bg-gray-200 rounded-2xl shadow-lg overflow-hidden">
+                <img id="current-exercise-image" src="" alt="Current Exercise" class="w-full h-full object-cover">
+                
+                <!-- Timer/Reps Display -->
+                <div id="timer-reps-container" class="absolute bottom-4 right-4 bg-gray-900 bg-opacity-80 text-white rounded-lg p-3 text-center leading-none">
+                    <div id="timer-display" class="hidden">
+                        <p class="text-4xl font-bold"></p>
+                        <p class="text-xs font-semibold tracking-wider">SECONDS</p>
+                    </div>
+                    <div id="reps-display" class="hidden">
+                        <p class="text-4xl font-bold"></p>
+                        <p class="text-xs font-semibold tracking-wider">REPS</p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar for Timer -->
+                <div class="absolute bottom-0 left-0 w-full h-1.5 bg-gray-500 bg-opacity-50">
+                    <div id="progress-bar" class="h-full bg-blue-500" style="width: 100%; transition: width 0.5s linear;"></div>
+                </div>
+            </div>
+
+            <div class="flex justify-center items-center gap-4">
+                <button id="pause-resume-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-full transition-all text-lg shadow-md hover:shadow-lg">Pause</button>
+                <button id="next-exercise-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-full transition-all text-lg shadow-md hover:shadow-lg">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Exercise Modal -->
+    <div id="exercise-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="modal-title" class="text-2xl font-bold text-gray-900">Add New Exercise</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <form id="exercise-form">
+                <input type="hidden" id="editing-exercise-index">
+                <div class="mb-4">
+                    <label for="exercise-name-input" class="block text-sm font-medium text-gray-700 mb-1">Exercise Name</label>
+                    <input type="text" id="exercise-name-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+
+                <div class="mb-4">
+                    <label for="exercise-image-input" class="block text-sm font-medium text-gray-700 mb-1">Exercise Image</label>
+                    <input type="file" id="exercise-image-input" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required>
+                    <img id="image-preview" src="" class="mt-4 rounded-lg max-h-40 mx-auto hidden" />
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                    <div class="flex gap-4">
+                        <label class="flex-1">
+                            <input type="radio" name="exercise-type" value="time" class="sr-only" checked>
+                            <div class="w-full text-center p-3 border rounded-lg cursor-pointer peer-checked:bg-blue-500 peer-checked:text-white peer-checked:border-blue-500 font-semibold">Time</div>
+                        </label>
+                        <label class="flex-1">
+                            <input type="radio" name="exercise-type" value="reps" class="sr-only">
+                            <div class="w-full text-center p-3 border rounded-lg cursor-pointer peer-checked:bg-blue-500 peer-checked:text-white peer-checked:border-blue-500 font-semibold">Reps</div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="time-input-container" class="mb-4">
+                    <label for="exercise-duration-input" class="block text-sm font-medium text-gray-700 mb-1">Duration (seconds)</label>
+                    <input type="number" id="exercise-duration-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg" min="1" value="30">
+                </div>
+                
+                <div id="reps-input-container" class="mb-4 hidden">
+                    <label for="exercise-reps-input" class="block text-sm font-medium text-gray-700 mb-1">Repetitions</label>
+                    <input type="number" id="exercise-reps-input" class="w-full px-4 py-2 border border-gray-300 rounded-lg" min="1" value="10">
+                </div>
+
+                <button type="submit" id="save-exercise-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md">Save Exercise</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE MANAGEMENT ---
+            let savedRoutines = [];
+            let currentRoutine = { id: null, name: '', exercises: [] };
+            let currentWorkout = [];
+            let currentExerciseIndex = 0;
+            let timerInterval = null;
+            let timeLeft = 0;
+            let isPaused = false;
+            let editingExerciseIndex = null;
+
+            // --- DOM ELEMENTS ---
+            const homeScreen = document.getElementById('home-screen');
+            const setupScreen = document.getElementById('setup-screen');
+            const workoutScreen = document.getElementById('workout-screen');
+            const exerciseModal = document.getElementById('exercise-modal');
+            
+            const routineList = document.getElementById('routine-list');
+            const createRoutineBtn = document.getElementById('create-routine-btn');
+            
+            const backToHomeBtn = document.getElementById('back-to-home-btn');
+            const setupScreenTitle = document.getElementById('setup-screen-title');
+            const routineNameInput = document.getElementById('routine-name-input');
+            const exerciseList = document.getElementById('exercise-list');
+            const addExerciseBtn = document.getElementById('add-exercise-btn');
+            const saveRoutineBtn = document.getElementById('save-routine-btn');
+            
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const exerciseForm = document.getElementById('exercise-form');
+            const quitWorkoutBtn = document.getElementById('quit-workout-btn');
+
+            // Modal elements
+            const modalTitle = document.getElementById('modal-title');
+            const exerciseNameInput = document.getElementById('exercise-name-input');
+            const exerciseImageInput = document.getElementById('exercise-image-input');
+            const imagePreview = document.getElementById('image-preview');
+            const timeInputContainer = document.getElementById('time-input-container');
+            const repsInputContainer = document.getElementById('reps-input-container');
+            const exerciseDurationInput = document.getElementById('exercise-duration-input');
+            const exerciseRepsInput = document.getElementById('exercise-reps-input');
+            
+            // Workout screen elements
+            const currentExerciseName = document.getElementById('current-exercise-name');
+            const currentExerciseImage = document.getElementById('current-exercise-image');
+            const progressInfo = document.getElementById('progress-info');
+            const timerDisplay = document.getElementById('timer-display');
+            const repsDisplay = document.getElementById('reps-display');
+            const pauseResumeBtn = document.getElementById('pause-resume-btn');
+            const nextExerciseBtn = document.getElementById('next-exercise-btn');
+            const progressBar = document.getElementById('progress-bar');
+
+            function setProgressBar(percent) {
+                progressBar.style.width = `${percent}%`;
+            }
+            
+            function switchScreen(screenToShow) {
+                document.querySelectorAll('.screen').forEach(screen => {
+                    if (!screen.classList.contains('hidden')) {
+                         screen.classList.add('hidden');
+                    }
+                });
+                screenToShow.classList.remove('hidden');
+            }
+
+            // --- EVENT LISTENERS ---
+            createRoutineBtn.addEventListener('click', showCreateRoutineScreen);
+            backToHomeBtn.addEventListener('click', () => switchScreen(homeScreen));
+            saveRoutineBtn.addEventListener('click', saveRoutine);
+            
+            addExerciseBtn.addEventListener('click', openAddExerciseModal);
+            closeModalBtn.addEventListener('click', closeExerciseModal);
+            exerciseForm.addEventListener('submit', handleExerciseFormSubmit);
+            
+            quitWorkoutBtn.addEventListener('click', () => {
+                clearInterval(timerInterval);
+                switchScreen(homeScreen);
+            });
+            pauseResumeBtn.addEventListener('click', togglePause);
+            nextExerciseBtn.addEventListener('click', nextExercise);
+
+            exerciseImageInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        imagePreview.src = event.target.result;
+                        imagePreview.classList.remove('hidden');
+                    }
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            document.querySelectorAll('input[name="exercise-type"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const isTime = e.target.value === 'time';
+                    timeInputContainer.classList.toggle('hidden', !isTime);
+                    repsInputContainer.classList.toggle('hidden', isTime);
+                });
+            });
+
+            // --- ROUTINE MANAGEMENT ---
+            function renderRoutines() {
+                routineList.innerHTML = '';
+                if (savedRoutines.length === 0) {
+                    routineList.innerHTML = `<p class="text-center text-gray-500 bg-white p-6 rounded-xl shadow-sm">No workout routines found. Create one to get started!</p>`;
+                } else {
+                    savedRoutines.forEach(routine => {
+                        const routineEl = document.createElement('div');
+                        routineEl.className = 'bg-white p-4 rounded-xl shadow-sm flex items-center justify-between';
+                        const totalExercises = routine.exercises.length;
+                        routineEl.innerHTML = `
+                            <div>
+                                <h3 class="font-bold text-xl text-gray-800">${routine.name}</h3>
+                                <p class="text-gray-600">${totalExercises} ${totalExercises === 1 ? 'exercise' : 'exercises'}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button data-id="${routine.id}" class="start-routine-btn bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-5 rounded-lg transition">Start</button>
+                                <button data-id="${routine.id}" class="edit-routine-btn p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button data-id="${routine.id}" class="delete-routine-btn p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-100 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                </button>
+                            </div>
+                        `;
+                        routineList.appendChild(routineEl);
+                    });
+                }
+                document.querySelectorAll('.start-routine-btn').forEach(btn => btn.addEventListener('click', (e) => startWorkout(e.currentTarget.dataset.id)));
+                document.querySelectorAll('.edit-routine-btn').forEach(btn => btn.addEventListener('click', (e) => showEditRoutineScreen(e.currentTarget.dataset.id)));
+                document.querySelectorAll('.delete-routine-btn').forEach(btn => btn.addEventListener('click', (e) => deleteRoutine(e.currentTarget.dataset.id)));
+            }
+
+            function showCreateRoutineScreen() {
+                currentRoutine = { id: null, name: '', exercises: [] };
+                setupScreenTitle.textContent = "Create New Routine";
+                routineNameInput.value = '';
+                renderExerciseList();
+                switchScreen(setupScreen);
+            }
+
+            function showEditRoutineScreen(routineId) {
+                const routineToEdit = savedRoutines.find(r => r.id == routineId);
+                if (routineToEdit) {
+                    currentRoutine = JSON.parse(JSON.stringify(routineToEdit)); // Deep copy
+                    setupScreenTitle.textContent = "Edit Routine";
+                    routineNameInput.value = currentRoutine.name;
+                    renderExerciseList();
+                    switchScreen(setupScreen);
+                }
+            }
+            
+            function saveRoutine() {
+                const routineName = routineNameInput.value.trim();
+                if (!routineName) {
+                    alert("Please enter a name for the routine.");
+                    return;
+                }
+                currentRoutine.name = routineName;
+
+                if (currentRoutine.id) { // Editing existing
+                    const index = savedRoutines.findIndex(r => r.id == currentRoutine.id);
+                    savedRoutines[index] = currentRoutine;
+                } else { // Creating new
+                    currentRoutine.id = Date.now();
+                    savedRoutines.push(currentRoutine);
+                }
+                renderRoutines();
+                switchScreen(homeScreen);
+            }
+
+            function deleteRoutine(routineId) {
+                if (confirm("Are you sure you want to delete this routine?")) {
+                    savedRoutines = savedRoutines.filter(r => r.id != routineId);
+                    renderRoutines();
+                }
+            }
+
+            // --- EXERCISE MANAGEMENT (within a routine) ---
+            function renderExerciseList() {
+                exerciseList.innerHTML = '';
+                if (currentRoutine.exercises.length === 0) {
+                    exerciseList.innerHTML = `<p class="text-center text-gray-500 bg-gray-100 p-6 rounded-xl">This routine is empty. Add some exercises!</p>`;
+                } else {
+                    currentRoutine.exercises.forEach((exercise, index) => {
+                        const exerciseEl = document.createElement('div');
+                        exerciseEl.className = 'bg-white p-4 rounded-xl shadow-sm flex items-center justify-between';
+                        exerciseEl.innerHTML = `
+                            <div class="flex items-center gap-4">
+                                <img src="${exercise.image}" class="w-16 h-16 rounded-lg object-cover">
+                                <div>
+                                    <h4 class="font-semibold text-lg">${exercise.name}</h4>
+                                    <p class="text-gray-600">${exercise.type === 'time' ? `${exercise.value} seconds` : `${exercise.value} reps`}</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button data-index="${index}" class="edit-exercise-btn p-2 text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
+                                <button data-index="${index}" class="delete-exercise-btn p-2 text-gray-500 hover:text-red-600 rounded-full hover:bg-gray-100 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                </button>
+                            </div>
+                        `;
+                        exerciseList.appendChild(exerciseEl);
+                    });
+                }
+                
+                document.querySelectorAll('.edit-exercise-btn').forEach(btn => btn.addEventListener('click', (e) => openEditExerciseModal(parseInt(e.currentTarget.dataset.index))));
+                document.querySelectorAll('.delete-exercise-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                    currentRoutine.exercises.splice(parseInt(e.currentTarget.dataset.index), 1);
+                    renderExerciseList();
+                }));
+            }
+            
+            function openAddExerciseModal() {
+                editingExerciseIndex = null;
+                modalTitle.textContent = 'Add New Exercise';
+                exerciseForm.reset();
+                imagePreview.classList.add('hidden');
+                imagePreview.src = '';
+                timeInputContainer.classList.remove('hidden');
+                repsInputContainer.classList.add('hidden');
+                exerciseModal.classList.remove('hidden');
+            }
+            
+            function openEditExerciseModal(index) {
+                editingExerciseIndex = index;
+                const exercise = currentRoutine.exercises[index];
+                modalTitle.textContent = 'Edit Exercise';
+                exerciseNameInput.value = exercise.name;
+                imagePreview.src = exercise.image;
+                imagePreview.classList.remove('hidden');
+                
+                document.querySelector(`input[name="exercise-type"][value="${exercise.type}"]`).checked = true;
+                const isTime = exercise.type === 'time';
+                timeInputContainer.classList.toggle('hidden', !isTime);
+                repsInputContainer.classList.toggle('hidden', isTime);
+
+                if(isTime) { exerciseDurationInput.value = exercise.value; } 
+                else { exerciseRepsInput.value = exercise.value; }
+                
+                exerciseModal.classList.remove('hidden');
+            }
+
+            function closeExerciseModal() {
+                exerciseModal.classList.add('hidden');
+            }
+
+            function handleExerciseFormSubmit(e) {
+                e.preventDefault();
+                const name = exerciseNameInput.value;
+                const image = imagePreview.src;
+                const type = document.querySelector('input[name="exercise-type"]:checked').value;
+                const value = type === 'time' ? parseInt(exerciseDurationInput.value) : parseInt(exerciseRepsInput.value);
+
+                if (!name || !image || !value) {
+                    alert('Please fill out all fields and select an image.');
+                    return;
+                }
+
+                const newExercise = { name, image, type, value };
+                
+                if (editingExerciseIndex !== null) {
+                    currentRoutine.exercises[editingExerciseIndex] = newExercise;
+                } else {
+                    currentRoutine.exercises.push(newExercise);
+                }
+
+                renderExerciseList();
+                closeExerciseModal();
+            }
+
+            // --- WORKOUT EXECUTION ---
+            function startWorkout(routineId) {
+                const routineToStart = savedRoutines.find(r => r.id == routineId);
+                if (!routineToStart || routineToStart.exercises.length === 0) {
+                    alert("This routine has no exercises!");
+                    return;
+                };
+                currentWorkout = routineToStart.exercises;
+                currentExerciseIndex = 0;
+                isPaused = false;
+                switchScreen(workoutScreen);
+                loadExercise(currentExerciseIndex);
+            }
+
+            function loadExercise(index) {
+                if (index >= currentWorkout.length) {
+                    finishWorkout();
+                    return;
+                }
+                
+                const exercise = currentWorkout[index];
+                currentExerciseName.textContent = exercise.name;
+                currentExerciseImage.src = exercise.image;
+                progressInfo.textContent = `Exercise ${index + 1} of ${currentWorkout.length}`;
+                
+                clearInterval(timerInterval);
+                isPaused = false;
+                pauseResumeBtn.textContent = 'Pause';
+                pauseResumeBtn.disabled = exercise.type !== 'time';
+
+
+                if (exercise.type === 'time') {
+                    timeLeft = exercise.value;
+                    timerDisplay.classList.remove('hidden');
+                    repsDisplay.classList.add('hidden');
+                    timerDisplay.querySelector('p:first-child').textContent = timeLeft;
+                    updateTimerDisplay();
+                    startTimer();
+                } else {
+                    timerDisplay.classList.add('hidden');
+                    repsDisplay.classList.remove('hidden');
+                    repsDisplay.querySelector('p:first-child').textContent = exercise.value;
+                    setProgressBar(100);
+                }
+            }
+
+            function startTimer() {
+                timerInterval = setInterval(() => {
+                    if (!isPaused) {
+                        timeLeft--;
+                        updateTimerDisplay();
+                        if (timeLeft <= 0) {
+                            nextExercise();
+                        }
+                    }
+                }, 1000);
+            }
+
+            function updateTimerDisplay() {
+                const exercise = currentWorkout[currentExerciseIndex];
+                timerDisplay.querySelector('p:first-child').textContent = timeLeft;
+                const percent = (timeLeft / exercise.value) * 100;
+                setProgressBar(percent);
+            }
+
+            function togglePause() {
+                if (currentWorkout[currentExerciseIndex].type !== 'time') return;
+                isPaused = !isPaused;
+                pauseResumeBtn.textContent = isPaused ? 'Resume' : 'Pause';
+            }
+
+            function nextExercise() {
+                currentExerciseIndex++;
+                loadExercise(currentExerciseIndex);
+            }
+
+            function finishWorkout() {
+                clearInterval(timerInterval);
+                alert('Workout Complete! Great job!');
+                switchScreen(homeScreen);
+            }
+
+            // --- INITIALIZATION ---
+            renderRoutines();
+            switchScreen(homeScreen);
+        });
+    </script>
+</body>
+</html>
