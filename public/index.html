@@ -25,6 +25,16 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl px-8 py-6 shadow-lg flex flex-col items-center">
+            <svg class="animate-spin h-8 w-8 text-blue-600 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <span class="text-lg font-semibold text-gray-700">Saving...</span>
+        </div>
+    </div>
 
     <div id="app-container" class="max-w-xl mx-auto p-4 relative">
 
@@ -227,15 +237,80 @@
                 screenToShow.classList.remove('hidden');
             }
 
+            // --- API HELPERS ---
+            const API_BASE = ""; // Same origin
+
+            async function fetchRoutines() {
+                const res = await fetch(`${API_BASE}/api/routines`);
+                if (!res.ok) throw new Error("Failed to fetch routines");
+                return await res.json();
+            }
+
+            async function createRoutine(routine) {
+                const res = await fetch(`${API_BASE}/api/routines`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(routine)
+                });
+                if (!res.ok) throw new Error("Failed to create routine");
+                return await res.json();
+            }
+
+            async function updateRoutine(routine) {
+                const res = await fetch(`${API_BASE}/api/routines/${routine.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(routine)
+                });
+                if (!res.ok) throw new Error("Failed to update routine");
+                return await res.json();
+            }
+
+            async function deleteRoutineAPI(routineId) {
+                const res = await fetch(`${API_BASE}/api/routines/${routineId}`, {
+                    method: "DELETE"
+                });
+                if (!res.ok) throw new Error("Failed to delete routine");
+                return await res.json();
+            }
+
+            async function uploadImage(file) {
+                const formData = new FormData();
+                formData.append("file", file);
+                const res = await fetch(`/api/upload-image`, {
+                    method: "POST",
+                    body: formData
+                });
+                if (!res.ok) {
+                    alert("Failed to upload image to server.");
+                    throw new Error("Failed to upload image");
+                }
+                const data = await res.json();
+                // Check if the returned URL looks like an S3 URL
+                if (!data.url || !data.url.startsWith("http")) {
+                    alert("Image upload failed: invalid image URL returned from server.");
+                    throw new Error("Invalid image URL");
+                }
+                return data.url;
+            }
+
+            // --- LOADING OVERLAY UTILS ---
+            const loadingOverlay = document.getElementById('loading-overlay');
+            function showLoading() { loadingOverlay.classList.remove('hidden'); }
+            function hideLoading() { loadingOverlay.classList.add('hidden'); }
+
+            // --- FALLBACK IMAGE ---
+            const FALLBACK_IMAGE = "https://via.placeholder.com/64?text=No+Image";
+
             // --- EVENT LISTENERS ---
             createRoutineBtn.addEventListener('click', showCreateRoutineScreen);
             backToHomeBtn.addEventListener('click', () => switchScreen(homeScreen));
             saveRoutineBtn.addEventListener('click', saveRoutine);
-            
+
             addExerciseBtn.addEventListener('click', openAddExerciseModal);
             closeModalBtn.addEventListener('click', closeExerciseModal);
             exerciseForm.addEventListener('submit', handleExerciseFormSubmit);
-            
+
             quitWorkoutBtn.addEventListener('click', () => {
                 clearInterval(timerInterval);
                 switchScreen(homeScreen);
@@ -243,9 +318,10 @@
             pauseResumeBtn.addEventListener('click', togglePause);
             nextExerciseBtn.addEventListener('click', nextExercise);
 
-            exerciseImageInput.addEventListener('change', (e) => {
+            exerciseImageInput.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
                 if (file) {
+                    // Show preview immediately
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         imagePreview.src = event.target.result;
@@ -264,7 +340,13 @@
             });
 
             // --- ROUTINE MANAGEMENT ---
-            function renderRoutines() {
+            async function renderRoutines() {
+                try {
+                    savedRoutines = await fetchRoutines();
+                } catch (e) {
+                    routineList.innerHTML = `<p class="text-center text-red-500 bg-white p-6 rounded-xl shadow-sm">Failed to load routines from server.</p>`;
+                    return;
+                }
                 routineList.innerHTML = '';
                 if (savedRoutines.length === 0) {
                     routineList.innerHTML = `<p class="text-center text-gray-500 bg-white p-6 rounded-xl shadow-sm">No workout routines found. Create one to get started!</p>`;
@@ -307,37 +389,53 @@
             function showEditRoutineScreen(routineId) {
                 const routineToEdit = savedRoutines.find(r => r.id == routineId);
                 if (routineToEdit) {
-                    currentRoutine = JSON.parse(JSON.stringify(routineToEdit)); // Deep copy
+                    // Deep copy
+                    currentRoutine = JSON.parse(JSON.stringify(routineToEdit));
                     setupScreenTitle.textContent = "Edit Routine";
                     routineNameInput.value = currentRoutine.name;
                     renderExerciseList();
                     switchScreen(setupScreen);
                 }
             }
-            
-            function saveRoutine() {
+
+            async function saveRoutine() {
                 const routineName = routineNameInput.value.trim();
                 if (!routineName) {
                     alert("Please enter a name for the routine.");
                     return;
                 }
-                currentRoutine.name = routineName;
-
-                if (currentRoutine.id) { // Editing existing
-                    const index = savedRoutines.findIndex(r => r.id == currentRoutine.id);
-                    savedRoutines[index] = currentRoutine;
-                } else { // Creating new
-                    currentRoutine.id = Date.now();
-                    savedRoutines.push(currentRoutine);
+                if (currentRoutine.exercises.length === 0) {
+                    alert("Please add at least one exercise.");
+                    return;
                 }
-                renderRoutines();
-                switchScreen(homeScreen);
+                currentRoutine.name = routineName;
+                saveRoutineBtn.disabled = true;
+                showLoading();
+                try {
+                    if (currentRoutine.id) {
+                        await updateRoutine(currentRoutine);
+                    } else {
+                        const res = await createRoutine(currentRoutine);
+                        currentRoutine.id = res.id;
+                    }
+                    await renderRoutines();
+                    switchScreen(homeScreen);
+                } catch (e) {
+                    alert("Failed to save routine.");
+                } finally {
+                    saveRoutineBtn.disabled = false;
+                    hideLoading();
+                }
             }
 
-            function deleteRoutine(routineId) {
+            async function deleteRoutine(routineId) {
                 if (confirm("Are you sure you want to delete this routine?")) {
-                    savedRoutines = savedRoutines.filter(r => r.id != routineId);
-                    renderRoutines();
+                    try {
+                        await deleteRoutineAPI(routineId);
+                        await renderRoutines();
+                    } catch (e) {
+                        alert("Failed to delete routine.");
+                    }
                 }
             }
 
@@ -352,7 +450,7 @@
                         exerciseEl.className = 'bg-white p-4 rounded-xl shadow-sm flex items-center justify-between';
                         exerciseEl.innerHTML = `
                             <div class="flex items-center gap-4">
-                                <img src="${exercise.image}" class="w-16 h-16 rounded-lg object-cover">
+                                <img src="${exercise.image}" class="w-16 h-16 rounded-lg object-cover" onerror="this.onerror=null;this.src='${FALLBACK_IMAGE}';">
                                 <div>
                                     <h4 class="font-semibold text-lg">${exercise.name}</h4>
                                     <p class="text-gray-600">${exercise.type === 'time' ? `${exercise.value} seconds` : `${exercise.value} reps`}</p>
@@ -370,7 +468,7 @@
                         exerciseList.appendChild(exerciseEl);
                     });
                 }
-                
+
                 document.querySelectorAll('.edit-exercise-btn').forEach(btn => btn.addEventListener('click', (e) => openEditExerciseModal(parseInt(e.currentTarget.dataset.index))));
                 document.querySelectorAll('.delete-exercise-btn').forEach(btn => btn.addEventListener('click', (e) => {
                     currentRoutine.exercises.splice(parseInt(e.currentTarget.dataset.index), 1);
@@ -396,15 +494,15 @@
                 exerciseNameInput.value = exercise.name;
                 imagePreview.src = exercise.image;
                 imagePreview.classList.remove('hidden');
-                
+
                 document.querySelector(`input[name="exercise-type"][value="${exercise.type}"]`).checked = true;
                 const isTime = exercise.type === 'time';
                 timeInputContainer.classList.toggle('hidden', !isTime);
                 repsInputContainer.classList.toggle('hidden', isTime);
 
-                if(isTime) { exerciseDurationInput.value = exercise.value; } 
+                if(isTime) { exerciseDurationInput.value = exercise.value; }
                 else { exerciseRepsInput.value = exercise.value; }
-                
+
                 exerciseModal.classList.remove('hidden');
             }
 
@@ -412,20 +510,43 @@
                 exerciseModal.classList.add('hidden');
             }
 
-            function handleExerciseFormSubmit(e) {
+            async function handleExerciseFormSubmit(e) {
                 e.preventDefault();
                 const name = exerciseNameInput.value;
-                const image = imagePreview.src;
+                let image = imagePreview.src;
                 const type = document.querySelector('input[name="exercise-type"]:checked').value;
                 const value = type === 'time' ? parseInt(exerciseDurationInput.value) : parseInt(exerciseRepsInput.value);
 
-                if (!name || !image || !value) {
-                    alert('Please fill out all fields and select an image.');
+                if (!name || !value) {
+                    alert('Please fill out all fields.');
                     return;
                 }
 
+                showLoading();
+                document.getElementById('save-exercise-btn').disabled = true;
+
+                // If a new file is selected, upload to S3
+                if (exerciseImageInput.files && exerciseImageInput.files[0]) {
+                    try {
+                        image = await uploadImage(exerciseImageInput.files[0]);
+                    } catch (err) {
+                        alert("Failed to upload image.");
+                        document.getElementById('save-exercise-btn').disabled = false;
+                        hideLoading();
+                        return;
+                    }
+                } else {
+                    // If no file is selected, check if image is a valid S3/HTTP URL
+                    if (!image || (!image.startsWith('http://') && !image.startsWith('https://'))) {
+                        alert('Please select an image.');
+                        document.getElementById('save-exercise-btn').disabled = false;
+                        hideLoading();
+                        return;
+                    }
+                }
+
                 const newExercise = { name, image, type, value };
-                
+
                 if (editingExerciseIndex !== null) {
                     currentRoutine.exercises[editingExerciseIndex] = newExercise;
                 } else {
@@ -434,6 +555,8 @@
 
                 renderExerciseList();
                 closeExerciseModal();
+                document.getElementById('save-exercise-btn').disabled = false;
+                hideLoading();
             }
 
             // --- WORKOUT EXECUTION ---
@@ -521,6 +644,16 @@
             // --- INITIALIZATION ---
             renderRoutines();
             switchScreen(homeScreen);
+
+            // --- DEBUG: Check API persistence ---
+            // If routines disappear after refresh, check the following:
+            // 1. The backend database is running and not resetting between requests.
+            // 2. The Flask server is not running in a mode that recreates the DB on every start.
+            // 3. The /api/routines endpoint returns the correct data after a POST.
+
+            // If you see "Database initialized." every time you refresh or restart the server,
+            // remove or comment out any db.create_all() or init-db calls in __main__.
+            // Only run db.create_all() ONCE to initialize the schema.
         });
     </script>
 </body>
